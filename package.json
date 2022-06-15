@@ -1,0 +1,19 @@
+{
+  "name": "server-structure",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "",
+    "run:static": "http-server -p 7654",
+    "run:server": "node main.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "http-server": "^14.1.1",
+    "socket.io": "^4.5.1"
+  }
+}

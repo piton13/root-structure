@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<body>
+
+<h1>My First Heading</h1>
+
+<div id="list">List is empty</div>
+<button id="a_button">send message to socket</button>
+
+</body>
+<script src="https://cdn.socket.io/3.1.3/socket.io.min.js" integrity="sha384-cPwlPLvBTa3sKAgddT6krw0cJat7egBga3DJepJyrLl4Q9/5WLra3rrnMcyTyOnh" crossorigin="anonymous"></script>
+<script>
+  const socket = io("http://localhost:4567");
+  const rootPath = 'source';
+  let currentPath = '';
+
+  function abc() {
+    socket.emit('private_message', { path: rootPath });
+  }
+
+  function moveToFolder(path) {
+    console.log('path: ', path);
+    if (path) {
+      currentPath = path;
+      socket.emit('private_message', { path: `${rootPath}/${currentPath}` });
+    }
+  }
+
+  function buildTree(records) {
+    const listEl = document.getElementById('list');
+
+    listEl.innerHTML = records
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .map(i => {
+        const path = `${currentPath}/${i[0]}`;
+        const isFile = /^\w*\.\w*$/.test(path);
+
+        return `<div onclick="moveToFolder('${isFile ? '' : path}')"> ${path} ${i[1]} ${i[2]} </div>`;
+      })
+    .join('<br>');
+  }
+  // from the same domen
+  // const socket = io();
+  // from different one
+  socket.on("connect", () => {
+    console.log(`Socket ${socket.id} on client: `); // x8WIv7-mJelg7on_ALbx
+  });
+
+  socket.on("disconnect", () => {
+    console.log('Disconnected from socket', socket.id); // undefined
+  });
+
+  socket.on("data", (msg) => {
+    console.log('Data obrained', msg)
+  });
+
+  socket.on("private_msg", (msg) => {
+    console.log('private_msg from server: ', msg);
+
+    buildTree(msg.data);
+  });
+
+  const button = document.getElementById('a_button');
+  button.addEventListener('click', abc);
+
+  // send to socket
+
+  // get from socket
+</script>
+</html>
