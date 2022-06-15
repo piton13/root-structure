@@ -2,6 +2,9 @@ const util = require('util');
 const exec = util.promisify(require('child_process').exec)
 const fs = require("fs");
 const path2 = require("path");
+require('dotenv').config();
+
+const port = process.env.PORT;
 
 const httpServer = require("http").createServer((req, res) => {
   res.writeHead(200, {
@@ -87,9 +90,8 @@ io.on("connection", (socket) => {
       stats,
     });
   });
-
 });
 
-httpServer.listen(4567, () => {
-  console.log('Server is running on 4567 port.');
+httpServer.listen(port, () => {
+  console.log(`Server is running on ${port} port.`);
 });
