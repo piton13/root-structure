@@ -1,12 +1,43 @@
-const { exec } = require("child_process");
+const util = require('util');
+const exec = util.promisify(require('child_process').exec)
+const fs = require("fs");
+const path2 = require("path");
 const httpServer = require("http").createServer();
 const io = require("socket.io")(httpServer, {
   // ...
 });
+
+function getFilesByPath(path, arrOfFiles = []) {
+  const files = fs.readdirSync(path, {
+    encoding: 'utf8',
+    // withFileTypes: true,
+  });
+  console.log('files: ', files);
+
+  files.forEach((file) => {
+    if (fs.statSync(path + '/' + file).isDirectory()) {
+      arrOfFiles = getFilesByPath(path + '/' + file, arrOfFiles);
+    } else {
+      const pathToFile = path2.join(path, '/', file);
+      const fileStats = fs.statSync(pathToFile);
+      console.log('fileStats: ', fileStats);
+
+      arrOfFiles.push({
+        fileName: pathToFile,
+        size: fileStats.size,
+        time: fileStats.mtime.toISOString(),
+      });
+      // arrOfFiles.push(path2.join(__dirname, path, '/', file));
+    }
+  });
+
+  return arrOfFiles;
+}
+
 io.on("connection", (socket) => {
   console.log(`Socket ${socket.id} was connected!`);
 
-  socket.on("private_message", (msg) => {
+  socket.on("private_message", async (msg) => {
     console.log('on_private_message: ', msg);
     // console.log('path: ', msg.path);
 
@@ -16,31 +47,37 @@ io.on("connection", (socket) => {
       return;
     }
 
-    exec(`ls -alt ./public/${msg.path}`, (error, stdout, stderr) => {
-    // exec(`ls -alt ./public/source`, (error, stdout, stderr) => {
-      if (error) {
-        console.log(`error: ${error.message}`);
-        return;
-      }
-      if (stderr) {
-        console.log(`stderr: ${stderr}`);
-        return;
-      }
-      console.log(`stdout: ${stdout}`);
-      socket.emit('private_msg', {
-        data: stdout.split('\n')
-          .map(item => item.split(' '))
-          .filter(r => r[11])
-          .map(i => i.filter(i => !!i))
-          .map(r => [r[8], r[4], `${r[5]} ${r[6]} ${r[7]}`])
-        // 7th - size; 8th - month; 9 - date; 10 - time; 11 - name
-      });
-      /*socket.emit('private_msg', {
-        data: stdout
-          .split('\n')
-          .map(item => item.split(' '))
-          .filter(d => d[6]).map(r => [r[6], r[5], r[4]])
-      });*/
+    const path = `./public/${msg.path}`;
+
+    const root = await fs.promises.readdir(path, {
+      encoding: 'utf8',
+      // withFileTypes: true,
+    });
+
+    console.log('root: ', root);
+
+    const { stdout } = await exec(`ls -alt ${path}`);
+    console.log('res :', stdout);
+
+    const structure = getFilesByPath(path);
+    const stats = {
+      count: structure.length,
+      size: structure.map(i => i.size).reduce((acc, el) => acc += el, 0),
+    };
+
+    console.log('structure: ', structure);
+
+    socket.emit('private_msg', {
+      data: stdout.split('\n')
+        .map(item => item.split(' '))
+        .filter(r => r[11])
+        .map(i => i.filter(i => !!i))
+        .map(r => ({
+          fileName: r[8],
+          size: Number(r[4]),
+          time: `${r[5]} ${r[6]} ${r[7]}`,
+        })),
+      stats,
     });
   });
 

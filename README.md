@@ -1,7 +1,7 @@
 + 1. As a user, I want to see the files and the folders located in a source folder
 + 2. The list should be ordered by size. 
 + 3. For every element I want to see the path, the size and the last modification date. 
-4. Finally, a count of the files and the total size of the source folder should be provided. 
++ 4. Finally, a count of the files and the total size of the source folder should be provided. 
 5. Develop a web app that allow the user to choose a folder, and show the result
 6. The application should scan subfolders recursively.
 

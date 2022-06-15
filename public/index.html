@@ -1,9 +1,13 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <style>
+        .stats {
+          margin-top: 10px;
+        }
+    </style>
+</head>
 <body>
-
-<h1>My First Heading</h1>
-
 <div id="list">List is empty</div>
 <button id="a_button">send message to socket</button>
 
@@ -26,18 +30,24 @@
     }
   }
 
-  function buildTree(records) {
+  function buildTree(msg) {
     const listEl = document.getElementById('list');
-
-    listEl.innerHTML = records
-      .sort((a, b) => Number(b[1]) - Number(a[1]))
+    const records = msg.data;
+    const { count, size } = msg.stats;
+    const list = records
+      .sort((a, b) => Number(b.size) - Number(a.size))
       .map(i => {
-        const path = `${currentPath}/${i[0]}`;
+        const path = `${currentPath}/${i.fileName}`;
         const isFile = /^\w*\.\w*$/.test(path);
 
-        return `<div onclick="moveToFolder('${isFile ? '' : path}')"> ${path} ${i[1]} ${i[2]} </div>`;
+        return `
+        <div onclick="moveToFolder('${isFile ? '' : path}')"> ${path} ${i.size} ${i.time}</div>
+        `;
       })
-    .join('<br>');
+      .join('<br>');
+    const stats = `<div class="stats">General size of ${count} files is: ${size} bytes</div>`;
+
+    listEl.innerHTML = `${list}${stats}`;
   }
   // from the same domen
   // const socket = io();
@@ -57,7 +67,7 @@
   socket.on("private_msg", (msg) => {
     console.log('private_msg from server: ', msg);
 
-    buildTree(msg.data);
+    buildTree(msg);
   });
 
   const button = document.getElementById('a_button');
