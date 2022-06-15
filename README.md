@@ -10,3 +10,9 @@ Questions:
 - When I have source_folder that contains folder1 & file1.txt. And folder1 contains file2.txt & file3.txt. After clicking on folder1 what should I see? (Only 2 files: folder1/file2.txt & folder1/file3.txt?)
 - a count of the files and the total size of the source folder should be different depending on selected inner folder?
 - What is allowed to be used in my app? (libs, tools or just simple JS?)
+
+# Run the app
+1. clone the repo to local machine; make sure that you have installed nodejs 16.x
+2. run `npm i` to install dependencies
+3. run `npm start` to run the server
+4. play with the app on `localhost:4567`

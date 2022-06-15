@@ -2,10 +2,17 @@ const util = require('util');
 const exec = util.promisify(require('child_process').exec)
 const fs = require("fs");
 const path2 = require("path");
-const httpServer = require("http").createServer();
-const io = require("socket.io")(httpServer, {
-  // ...
+
+const httpServer = require("http").createServer((req, res) => {
+  res.writeHead(200, {
+    'Content-Type': 'text/html',
+  });
+
+  const readStream = fs.createReadStream('./public/index.html');
+
+  readStream.pipe(res);
 });
+const io = require("socket.io")(httpServer, {});
 
 function getFilesByPath(path, arrOfFiles = []) {
   const files = fs.readdirSync(path, {
