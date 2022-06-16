@@ -1,4 +1,3 @@
-const util = require('util');
 const fs = require("fs");
 const path2 = require("path");
 require('dotenv').config();
@@ -24,20 +23,35 @@ function isDirectory(path) {
   return fs.statSync(path).isDirectory();
 }
 
-function getFilesByPath(path, arrOfFiles = []) {
+function getStats(path) {
+  return fs.statSync(path);
+}
+
+function getFilesByPath(path, arrOfFiles = [], deepDive) {
   const files = fs.readdirSync(path, {
     encoding: 'utf8',
   });
 
   files.forEach((file) => {
-    if (isDirectory(path + '/' + file)) {
-      arrOfFiles = getFilesByPath(path + '/' + file, arrOfFiles);
+    const newPath = path2.join(path, '/', file);
+
+    if (isDirectory(newPath)) {
+      if (!deepDive) {
+        const dirStats = getStats(newPath);
+        arrOfFiles.push({
+          isFile: false,
+          fileName: newPath,
+          size: 0,
+          time: dirStats.mtime.toISOString(),
+        });
+      }
+      arrOfFiles = getFilesByPath(newPath, arrOfFiles, true);
     } else {
-      const pathToFile = path2.join(path, '/', file);
-      const fileStats = fs.statSync(pathToFile);
+      const fileStats = getStats(newPath);
 
       arrOfFiles.push({
-        fileName: pathToFile,
+        isFile: true,
+        fileName: newPath,
         size: fileStats.size,
         time: fileStats.mtime.toISOString(),
       });
@@ -69,6 +83,7 @@ async function getRootFolders(path) {
 io.on("connection", async (socket) => {
   console.log(`Socket ${socket.id} was connected!`);
   const rootPath = './public';
+  let currentPath;
 
   const rootStructure = await getRootFolders(rootPath);
 
@@ -79,16 +94,18 @@ io.on("connection", async (socket) => {
   socket.on("private_message", async (msg) => {
     console.log('move to inner file|folder: ', msg);
 
-    const path = `${rootPath}/${msg.path}`;
+    let path = path2.join(rootPath, '/', msg.path);
     if (!rootStructure.folders.includes(msg.path) && !isDirectory(path)) {
       console.log('Root folder or file is selected');
       return ;
     }
 
-    console.log('path2', path2.basename(`${rootPath}/.././..`));
+    // TODO: validate edge cases for path
     if (msg.path === '..') {
-      console.error('Not secure path is passed');
-      // return
+      const arr = currentPath.split('/');
+      arr.pop();
+
+      path = arr.join('/');
     }
 
     const root = await getRootFolders(path);
@@ -100,6 +117,7 @@ io.on("connection", async (socket) => {
       const sizeOfFiles = structure.map(i => i.size).reduce((acc, el) => acc += el, 0);
 
       return {
+        isFile: false,
         fileName: filePath.replace('public/', ''),
         size: sizeOfFiles,
         time: fileStats.mtime.toISOString(),
@@ -110,6 +128,7 @@ io.on("connection", async (socket) => {
       const fileStats = fs.statSync(filePath);
 
       return {
+        isFile: true,
         fileName: filePath.replace('public/', ''),
         size: fileStats.size,
         time: fileStats.mtime.toISOString(),
@@ -118,15 +137,19 @@ io.on("connection", async (socket) => {
     const data = [...folders, ...files];
 
     const structure = getFilesByPath(path);
+    const filesOnly = structure.filter(r => r.isFile);
     const stats = {
-      count: structure.length,
-      size: structure.map(i => i.size).reduce((acc, el) => acc += el, 0),
+      count: filesOnly.length,
+      size: filesOnly
+        .map(i => i.size)
+        .reduce((acc, el) => acc += el, 0),
     };
 
     socket.emit('private_msg', {
       data,
       stats,
     });
+    currentPath = path;
   });
 });
 
