@@ -1,5 +1,4 @@
 const util = require('util');
-const exec = util.promisify(require('child_process').exec)
 const fs = require("fs");
 const path2 = require("path");
 require('dotenv').config();
@@ -17,57 +16,106 @@ const httpServer = require("http").createServer((req, res) => {
 });
 const io = require("socket.io")(httpServer, {});
 
+async function getRootFiles(path) {
+  return fs.promises.readdir(path, { encoding: 'utf8' });
+}
+
+function isDirectory(path) {
+  return fs.statSync(path).isDirectory();
+}
+
 function getFilesByPath(path, arrOfFiles = []) {
   const files = fs.readdirSync(path, {
     encoding: 'utf8',
-    // withFileTypes: true,
   });
-  console.log('files: ', files);
 
   files.forEach((file) => {
-    if (fs.statSync(path + '/' + file).isDirectory()) {
+    if (isDirectory(path + '/' + file)) {
       arrOfFiles = getFilesByPath(path + '/' + file, arrOfFiles);
     } else {
       const pathToFile = path2.join(path, '/', file);
       const fileStats = fs.statSync(pathToFile);
-      console.log('fileStats: ', fileStats);
 
       arrOfFiles.push({
         fileName: pathToFile,
         size: fileStats.size,
         time: fileStats.mtime.toISOString(),
       });
-      // arrOfFiles.push(path2.join(__dirname, path, '/', file));
     }
   });
 
   return arrOfFiles;
 }
 
-io.on("connection", (socket) => {
+async function getRootFolders(path) {
+  const folders = [];
+  const files = [];
+  const rootStructure = await getRootFiles(path);
+
+  rootStructure.forEach((file) => {
+    if (isDirectory(path + '/' + file)) {
+      folders.push(file);
+    } else {
+      files.push(file);
+    }
+  });
+
+  return {
+    folders,
+    files,
+  };
+}
+
+io.on("connection", async (socket) => {
   console.log(`Socket ${socket.id} was connected!`);
+  const rootPath = './public';
+
+  const rootStructure = await getRootFolders(rootPath);
+
+  socket.emit('initialization', {
+    rootFolders: rootStructure.folders,
+  });
 
   socket.on("private_message", async (msg) => {
-    console.log('on_private_message: ', msg);
-    // console.log('path: ', msg.path);
+    console.log('move to inner file|folder: ', msg);
 
-    const isFile = /^\w*\.\w*$/.test(msg.path);
-
-    if (isFile) {
-      return;
+    const path = `${rootPath}/${msg.path}`;
+    if (!rootStructure.folders.includes(msg.path) && !isDirectory(path)) {
+      console.log('Root folder or file is selected');
+      return ;
     }
 
-    const path = `./public/${msg.path}`;
+    console.log('path2', path2.basename(`${rootPath}/.././..`));
+    if (msg.path === '..') {
+      console.error('Not secure path is passed');
+      // return
+    }
 
-    const root = await fs.promises.readdir(path, {
-      encoding: 'utf8',
-      // withFileTypes: true,
+    const root = await getRootFolders(path);
+    const folders = root.folders.map(f => {
+      const filePath = path2.join(path, '/', f);
+      const fileStats = fs.statSync(filePath);
+
+      const structure = getFilesByPath(filePath);
+      const sizeOfFiles = structure.map(i => i.size).reduce((acc, el) => acc += el, 0);
+
+      return {
+        fileName: filePath.replace('public/', ''),
+        size: sizeOfFiles,
+        time: fileStats.mtime.toISOString(),
+      };
     });
+    const files = root.files.map((p) => {
+      const filePath = path2.join(path, '/', p);
+      const fileStats = fs.statSync(filePath);
 
-    console.log('root: ', root);
-
-    const { stdout } = await exec(`ls -alt ${path}`);
-    console.log('res :', stdout);
+      return {
+        fileName: filePath.replace('public/', ''),
+        size: fileStats.size,
+        time: fileStats.mtime.toISOString(),
+      };
+    });
+    const data = [...folders, ...files];
 
     const structure = getFilesByPath(path);
     const stats = {
@@ -75,18 +123,8 @@ io.on("connection", (socket) => {
       size: structure.map(i => i.size).reduce((acc, el) => acc += el, 0),
     };
 
-    console.log('structure: ', structure);
-
     socket.emit('private_msg', {
-      data: stdout.split('\n')
-        .map(item => item.split(' '))
-        .filter(r => r[11])
-        .map(i => i.filter(i => !!i))
-        .map(r => ({
-          fileName: r[8],
-          size: Number(r[4]),
-          time: `${r[5]} ${r[6]} ${r[7]}`,
-        })),
+      data,
       stats,
     });
   });

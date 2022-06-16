@@ -4,11 +4,16 @@
     <style>
         .stats {
           margin-top: 10px;
+          margin-bottom: 10px;
         }
     </style>
 </head>
 <body>
-<div id="list">List is empty</div>
+<div id="list">
+    <div>Please choose init folder for source folder</div>
+
+</div>
+
 <button id="a_button">send message to socket</button>
 
 </body>
@@ -26,7 +31,11 @@
     console.log('path: ', path);
     if (path) {
       currentPath = path;
-      socket.emit('private_message', { path: `${rootPath}/${currentPath}` });
+
+      if (path === '..') {
+        path = currentPath + '/' + path;
+      }
+      socket.emit('private_message', { path });
     }
   }
 
@@ -34,20 +43,21 @@
     const listEl = document.getElementById('list');
     const records = msg.data;
     const { count, size } = msg.stats;
+    const moveBack = `<div onclick="moveToFolder('${records[0].fileName.split('/')[0] + '/..'}')">..</div>`;
     const list = records
       .sort((a, b) => Number(b.size) - Number(a.size))
       .map(i => {
-        const path = `${currentPath}/${i.fileName}`;
+        const path = `${i.fileName}`;
         const isFile = /^\w*\.\w*$/.test(path);
 
         return `
-        <div onclick="moveToFolder('${isFile ? '' : path}')"> ${path} ${i.size} ${i.time}</div>
+        <div onclick="moveToFolder('${isFile ? '' : path}')">Last modification date: ${i.time}. Size: ${i.size}. ${path}</div>
         `;
       })
       .join('<br>');
     const stats = `<div class="stats">General size of ${count} files is: ${size} bytes</div>`;
 
-    listEl.innerHTML = `${list}${stats}`;
+    listEl.innerHTML = `${/source\/*/.test(records[0].fileName) ? moveBack : ''}${list}${stats}`;
   }
   // from the same domen
   // const socket = io();
@@ -58,6 +68,16 @@
 
   socket.on("disconnect", () => {
     console.log('Disconnected from socket', socket.id); // undefined
+  });
+
+  socket.on("initialization", (msg) => {
+    console.log('Initialization started');
+
+    const listEl = document.getElementById('list');
+    listEl.innerHTML = `
+        <div class="stats">Please choose source folder</div>
+        ${msg.rootFolders.map(f => `<div onclick="moveToFolder('${f}')">${f}</div>`).join('')}
+    `;
   });
 
   socket.on("data", (msg) => {
