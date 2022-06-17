@@ -3,8 +3,14 @@
 <head>
     <style>
         .stats {
-          margin-top: 10px;
-          margin-bottom: 10px;
+          margin: 20px 5px;
+        }
+        .record {
+          margin: 10px 5px;
+          cursor: pointer;
+        }
+        .record:hover {
+          font-style: italic;
         }
     </style>
 </head>
@@ -28,29 +34,30 @@
     const listEl = document.getElementById('list');
     const records = msg.data;
     const { count, size } = msg.stats;
-    const moveBack = `<div onclick="moveToFolder('..')">..</div>`;
+    const moveBack = `<div onclick="moveToFolder('..')" class="record">..</div>`;
     const list = records
       .sort((a, b) => Number(b.size) - Number(a.size))
       .map(i => {
         const path = `${i.fileName}`;
 
         return `
-        <div onclick="moveToFolder('${i.isFile ? '' : path}')">Modified at ${i.time}; Size: ${i.size}; ${i.fileName}</div>
+        <div onclick="moveToFolder('${i.isFile ? '' : path}')" class="record">
+            ${i.fileName} <br> Size: ${i.size} <br> Modified at ${i.time}
+        </div>
         `;
       })
-      .join('<br>');
+      .join('');
     const stats = `<div class="stats">General size of ${count} files is: ${size} bytes</div>`;
 
-    listEl.innerHTML = `${/source\/*/.test(records[0].fileName) ? moveBack : ''}${list}${stats}`;
+    // TODO: fix issue with empty folder
+    listEl.innerHTML = `${/source\/*/.test(records[0] && records[0].fileName) ? moveBack : ''}${list}${stats}`;
   }
-  // from the same domain
-  // from different one
   socket.on("connect", () => {
-    console.log(`Socket ${socket.id} on client: `); // x8WIv7-mJelg7on_ALbx
+    console.log(`Socket ${socket.id} on client: `);
   });
 
   socket.on("disconnect", () => {
-    console.log('Disconnected from socket', socket.id); // undefined
+    console.log('Disconnected from socket', socket.id);
   });
 
   socket.on("initialization", (msg) => {
@@ -59,22 +66,14 @@
     const listEl = document.getElementById('list');
     listEl.innerHTML = `
         <div class="stats">Please choose source folder</div>
-        ${msg.rootFolders.map(f => `<div onclick="moveToFolder('${f}')">${f}</div>`).join('')}
+        ${msg.rootFolders.map(f => `<div onclick="moveToFolder('${f}')" class="record">${f}</div>`).join('')}
     `;
   });
 
-  socket.on("data", (msg) => {
-    console.log('Data obrained', msg)
-  });
-
   socket.on("private_msg", (msg) => {
-    console.log('private_msg from server: ', msg);
+    console.log('Income message from server: ', msg);
 
     buildTree(msg);
   });
-
-  // send to socket
-
-  // get from socket
 </script>
 </html>
